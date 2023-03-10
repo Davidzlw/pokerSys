@@ -1,5 +1,7 @@
 import random
 from poker_base import *
+from position import Position
+from actions import *
 from poker_player import Player
 
 class Dealer:
@@ -26,7 +28,7 @@ class Dealer:
     def draw(self):
         return self.piles.pop()
 
-    def draw(self, card: Card):
+    def draw_spec(self, card: Card):
         assert card in self.piles
         self.piles.remove(card)
         return card
@@ -34,9 +36,9 @@ class Dealer:
     def deliver_to_player(self, i):
         self.game.players[i].hand = [self.draw(), self.draw()]
 
-    def deliver_to_player(self, i, hand: [Card]):
+    def deliver_specific_to_player(self, i, hand: [Card]):
         assert len(hand) == 2
-        self.game.players[i].hand = [self.draw(hand[0]), self.draw(hand[1])]
+        self.game.players[i].hand = [self.draw_spec(hand[0]), self.draw_spec(hand[1])]
 
     def deliver_to_all(self):
         for i in range(self.game.nplayer):
@@ -72,33 +74,43 @@ class Dealer:
 
 class System:
     def __init__(self, n):
-        assert n <= 10
+        assert 2 <= n <= 10
         self.dealer = Dealer(self)
+        self.manager = PotManager(self, 1000)
         self.judger = Judge()
+        self.rounds = ["preflop", "flop", "turn", "river"]
+        self.round_id = 0
         self.nplayer = n
         self.players = []
         for i in range(n):
             self.players.append(Player(i, "player_" + str(i)))
+        self.button_id = 0
 
     def run(self):
         self.dealer.shuffle()
         self.dealer.deliver_to_all()
+        self.manager.init()
+        self.manager.round()
         self.dealer.flop()
+        self.manager.round()
         self.dealer.turn()
+        self.manager.round()
         self.dealer.river()
+        self.manager.round()
         self.dealer.show_hands()
         self.dealer.show_board()
         print(len(self.dealer.piles), " cards left")
 
         judge = Judge()
         judge.judge(self.dealer.board, self.players)
+        self.button_id = (self.button_id + 1) % self.nplayer
 
     def test1(self):
         self.dealer.shuffle()
         hand0 = [Card(Suit.Heart, Point.Three), Card(Suit.Heart, Point.Four)]
         hand1 = [Card(Suit.Diamond, Point.Ace), Card(Suit.Spade, Point.King)]
-        self.dealer.deliver_to_player(0, hand0)
-        self.dealer.deliver_to_player(1, hand1)
+        self.dealer.deliver_specific_to_player(0, hand0)
+        self.dealer.deliver_specific_to_player(1, hand1)
         judge = Judge()
 
         cnt0, cnt1, deuce = 0, 0, 0
@@ -123,5 +135,5 @@ class System:
 if __name__ == "__main__":
     # random.seed(1)
     system = System(2)
-    # system.run()
-    system.test1()
+    system.run()
+    # system.test1()
