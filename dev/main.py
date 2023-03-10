@@ -50,19 +50,19 @@ class Dealer:
         for i in range(self.game.nplayer):
             print(i, "th player:", self.game.players[i].name)
             hand = self.game.players[i].hand
-            hand[0].print()
-            hand[1].print()
-            print()
+            print(hand[0], '|', hand[1])
 
     def show_board(self):
         print("board:")
+        msg = ""
         for card in self.board:
-            card.print()
-        print()
+            msg += card.__str__() + ' | '
+        print(msg)
 
 
 class System:
     def __init__(self, n):
+        assert n <= 10
         self.dealer = Dealer(self)
         self.judger = Judge()
         self.nplayer = n
@@ -85,5 +85,6 @@ class System:
 
 
 if __name__ == "__main__":
-    system = System(2)
+    # random.seed(1)
+    system = System(3)
     system.run()

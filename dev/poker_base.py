@@ -9,6 +9,19 @@ class Suit(Enum):
     Spade = 2
     Club = 3
 
+    def short(self):
+        if self == Suit.Heart:
+            return "♡"
+        elif self == Suit.Diamond:
+            return "♢"
+        elif self == Suit.Spade:
+            return "♤"
+        elif self == Suit.Club:
+            return "♧"
+
+    def __str__(self):
+        return "{}".format(self.short())
+
 
 class Point(IntEnum):
     Two = 2
@@ -25,28 +38,58 @@ class Point(IntEnum):
     King = 13
     Ace = 14
 
+    def short(self):
+        if int(self) == 11:
+            return "J"
+        elif int(self) == 12:
+            return "Q"
+        elif int(self) == 13:
+            return "K"
+        elif int(self) == 14:
+            return "A"
+        return str(int(self))
+
+    def __str__(self):
+        return "{}".format(self.short())
+
+
+class Card:
+    def __init__(self, suit: Suit, point: Point):
+        self.suit = suit
+        self.point = point
+
+    def __str__(self):
+        return "{} {}".format(self.suit, self.point)
+
 
 class Categories:
     def __init__(self):
         self.cat_name = ""
 
+    def print(self):
+        print(self.info())
 
 class HighCard(Categories):
-    def __init__(self, points: []):
+    def __init__(self, points: [int]):
         super().__init__()
         self.cat_name = "HighCard"
         self.rank = 1
         self.points = points
 
+    def info(self):
+        return "points: {}".format(self.points)
+
 
 class Pair(Categories):
-    def __init__(self, pair: int, kickers: []):
+    def __init__(self, pair: int, kickers: [int]):
         super().__init__()
         self.cat_name = "Pair"
         self.rank = 2
         self.pair = pair
         self.kickers = kickers
 
+    def info(self):
+        return "pair: {}, kickers: {} {} {}".format(self.pair, self.kickers[0], self.kickers[1], self.kickers[2])
 
 class TwoPair(Categories):
     def __init__(self, tpair: int, npair: int, kicker: int):
@@ -57,15 +100,19 @@ class TwoPair(Categories):
         self.npair = npair
         self.kicker = kicker
 
+    def info(self):
+        return "tpair: {}, npair: {}, kicker: {}".format(self.tpair, self.npair, self.kicker)
 
 class Set(Categories):
-    def __init__(self, set: int, kickers: []):
+    def __init__(self, set: int, kickers: [int]):
         super().__init__()
         self.cat_name = "Set"
         self.rank = 4
         self.set = set
         self.kickers = kickers
 
+    def info(self):
+        return "set: {}, kickers: {} {}".format(self.set, self.kickers[0], self.kickers[1])
 
 class Straight(Categories):
     def __init__(self, high: int):
@@ -74,15 +121,20 @@ class Straight(Categories):
         self.rank = 5
         self.high = high
 
+    def info(self):
+        return "high: {}".format(self.high)
 
 class Flush(Categories):
-    def __init__(self, suit, points: []):
+    def __init__(self, suit: Suit, points: [int]):
         super().__init__()
         self.cat_name = "Flush"
         self.rank = 6
         self.suit = suit
         self.points = points
 
+    def info(self):
+        return "suit: {}, points: {} {} {} {} {}".format(self.suit, self.points[0], self.points[1],
+                                                         self.points[2], self.points[3], self.points[4])
 
 class FullHouse(Categories):
     def __init__(self, set: int, pair: int):
@@ -92,6 +144,8 @@ class FullHouse(Categories):
         self.set = set
         self.pair = pair
 
+    def info(self):
+        return "set: {}, pair: {}".format(self.set, self.pair)
 
 class Quart(Categories):
     def __init__(self, quart: int, kicker: int):
@@ -101,22 +155,19 @@ class Quart(Categories):
         self.quart = quart
         self.kicker = kicker
 
+    def info(self):
+        return "quart: {}, kicker: {}".format(self.quart, self.kicker)
 
 class StraightFlush(Categories):
-    def __init__(self, high: int):
+    def __init__(self, suit: Suit, high: int):
         super().__init__()
         self.cat_name = "StraightFlush"
         self.rank = 9
+        self.suit = suit
         self.high = high
 
-
-class Card:
-    def __init__(self, suit: Suit, point: Point):
-        self.suit = suit
-        self.point = point
-
-    def print(self):
-        print(self.suit, self.point)
+    def info(self):
+        return "suit: {}, high: {}".format(self.suit, self.high)
 
 
 class Result:
@@ -172,11 +223,11 @@ class Judge:
             suit = next(key for key in suit_cnt.keys() if suit_cnt[key] >= 5)
             flush_cards = [card for card in combine if card.suit == suit]
             if self.highest_straight(flush_cards) > 0:
-                return StraightFlush(self.highest_straight(flush_cards))
+                return StraightFlush(suit, self.highest_straight(flush_cards))
 
         if max(points_cnt.values()) == 4:
             quart = max([key for key in points_cnt.keys() if points_cnt[key] == 4])
-            kicker = max(key for key in points_cnt.keys() if points_cnt[key] >= 2 and key != quart)
+            kicker = max(key for key in points_cnt.keys() if points_cnt[key] >= 1 and key != quart)
             return Quart(quart, kicker)
 
         if max(points_cnt.values()) == 3:
@@ -195,7 +246,7 @@ class Judge:
 
         if max(points_cnt.values()) == 3:
             set = max([key for key in points_cnt.keys() if points_cnt[key] == 3])
-            rest = sorted([key for key in points_cnt.keys() if key != set], reverse=True)
+            rest = sorted([key for key in points_cnt.keys() if points_cnt[key] >= 1 and key != set], reverse=True)
             kickers = rest[:2]
             return Set(set, kickers)
 
@@ -204,9 +255,9 @@ class Judge:
             rest_pairs = [key for key in points_cnt.keys() if points_cnt[key] == 2 and key != tpair]
             if rest_pairs:
                 npair = max(rest_pairs)
-                kicker = max(key for key in points_cnt.keys() if key != tpair and key != npair)
+                kicker = max(key for key in points_cnt.keys() if points_cnt[key] >= 1 and key != tpair and key != npair)
                 return TwoPair(tpair, npair, kicker)
-            rest_points = sorted([key for key in points_cnt.keys() if key != tpair], reverse=True)
+            rest_points = sorted([key for key in points_cnt.keys() if points_cnt[key] >= 1 and key != tpair], reverse=True)
             return Pair(tpair, rest_points[:3])
 
         return HighCard(list(points_cnt.keys())[:5])
@@ -269,4 +320,4 @@ class Judge:
             print(player.name, res.cat_name)
         winners = self.pk(results)
         for winner in winners:
-            print("winner(s) is {} with {}".format(winner.player_id, winner.cat.cat_name))
+            print("winner(s) is {} with {}, {}".format(winner.player_id, winner.cat.cat_name, winner.cat.info()))
