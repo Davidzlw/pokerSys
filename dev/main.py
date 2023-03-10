@@ -15,18 +15,28 @@ class Dealer:
                 self.piles.append(Card(suit, pt))
         random.shuffle(self.piles)
 
-    def choose(self):
-        suit_list = list(Suit)
-        point_list = list(Point)
-        st = random.choice(suit_list)
-        pt = random.choice(point_list)
-        return Card(st, pt)
+    def choose_5(self):
+        board = []
+        temp = self.piles.copy()
+        random.shuffle(temp)
+        for i in range(5):
+            board.append(temp.pop())
+        return board
 
     def draw(self):
         return self.piles.pop()
 
+    def draw(self, card: Card):
+        assert card in self.piles
+        self.piles.remove(card)
+        return card
+
     def deliver_to_player(self, i):
         self.game.players[i].hand = [self.draw(), self.draw()]
+
+    def deliver_to_player(self, i, hand: [Card]):
+        assert len(hand) == 2
+        self.game.players[i].hand = [self.draw(hand[0]), self.draw(hand[1])]
 
     def deliver_to_all(self):
         for i in range(self.game.nplayer):
@@ -83,8 +93,35 @@ class System:
         judge = Judge()
         judge.judge(self.dealer.board, self.players)
 
+    def test1(self):
+        self.dealer.shuffle()
+        hand0 = [Card(Suit.Heart, Point.Three), Card(Suit.Heart, Point.Four)]
+        hand1 = [Card(Suit.Diamond, Point.Ace), Card(Suit.Spade, Point.King)]
+        self.dealer.deliver_to_player(0, hand0)
+        self.dealer.deliver_to_player(1, hand1)
+        judge = Judge()
+
+        cnt0, cnt1, deuce = 0, 0, 0
+        n = 1000
+        for i in range(n):
+            board = self.dealer.choose_5()
+            # msg = ""
+            # for card in board:
+            #     msg += card.__str__() + ' | '
+            # print(msg)
+            winner = judge.judge(board, self.players)
+            if winner == 0:
+                cnt0 += 1
+            elif winner == 1:
+                cnt1 += 1
+            else:
+                deuce += 1
+        print("{} | {} winning rate: {}, {} | {} winning rate: {}, deuce: {}".format(hand0[0], hand0[1], 1.0*cnt0/n,
+                                                                         hand1[0], hand1[1], 1.0*cnt1/n, 1.0*deuce/n))
+
 
 if __name__ == "__main__":
     # random.seed(1)
-    system = System(3)
-    system.run()
+    system = System(2)
+    # system.run()
+    system.test1()

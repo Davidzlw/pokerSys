@@ -61,6 +61,12 @@ class Card:
     def __str__(self):
         return "{} {}".format(self.suit, self.point)
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        else:
+            return False
+
 
 class Categories:
     def __init__(self):
@@ -311,13 +317,17 @@ class Judge:
     def judge(self, board: [Card], players: []):
         self.board = board.copy()
         assert len(self.board) == 5
-        print("judge result:")
+        # print("judge result:")
         results = []
         for player in players:
             hand = player.hand
             res = self.rank(self.board + hand)
             results.append(Result(player.id, res))
-            print(player.name, res.cat_name)
+            # print(player.name, res.cat_name)
         winners = self.pk(results)
-        for winner in winners:
-            print("winner(s) is {} with {}, {}".format(winner.player_id, winner.cat.cat_name, winner.cat.info()))
+        # for winner in winners:
+            # print("winner(s) is {} with {}, {}\n".format(winner.player_id, winner.cat.cat_name, winner.cat.info()))
+        if len(winners) > 1:
+            return -1
+        return winners[0].player_id
+
