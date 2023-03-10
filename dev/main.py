@@ -76,7 +76,6 @@ class System:
     def __init__(self, n):
         assert 2 <= n <= 10
         self.dealer = Dealer(self)
-        self.manager = PotManager(self, 1000)
         self.judger = Judge()
         self.rounds = ["preflop", "flop", "turn", "river"]
         self.round_id = 0
@@ -84,12 +83,13 @@ class System:
         self.players = []
         for i in range(n):
             self.players.append(Player(i, "player_" + str(i)))
+        self.manager = PotManager(self, 1000)
         self.button_id = 0
 
     def run(self):
         self.dealer.shuffle()
         self.dealer.deliver_to_all()
-        self.manager.init()
+        self.manager.every_game_init()
         self.manager.round()
         self.dealer.flop()
         self.manager.round()
