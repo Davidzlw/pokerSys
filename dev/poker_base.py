@@ -326,7 +326,9 @@ class Judge:
             # print(player.name, res.cat_name)
         winners = self.pk(results)
         for winner in winners:
-            print("winner(s) is {} with {}, {}\n".format(winner.player_id, winner.cat.cat_name, winner.cat.info()))
+            need_print = True
+            if need_print:
+                print("winner(s) is {} with {}, {}\n".format(winner.player_id, winner.cat.cat_name, winner.cat.info()))
         if len(winners) > 1:
             return -1
         return winners[0].player_id
