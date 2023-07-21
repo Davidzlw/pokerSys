@@ -2,7 +2,7 @@ import random
 from poker_base import *
 from position import Position
 from actions import *
-from poker_player import Player
+from poker_player import *
 
 
 class Dealer:
@@ -45,6 +45,9 @@ class Dealer:
         for i in range(len(self.game.sys.players)):
             self.deliver_to_player(i)
 
+    def preflop(self):
+        pass
+
     def flop(self):
         assert len(self.board) == 0
         self.board.append(self.draw())
@@ -60,9 +63,9 @@ class Dealer:
         self.board.append(self.draw())
 
     def show_hands(self):
-        for i in range(self.game.nplayer):
-            print(i, "th player:", self.game.players[i].name)
-            hand = self.game.players[i].hand
+        for i in range(self.game.sys.nplayer):
+            print(i, "th player:", self.game.sys.players[i].name)
+            hand = self.game.sys.players[i].hand
             print(hand[0], '|', hand[1])
 
     def show_board(self):
@@ -78,7 +81,8 @@ class Game:
         self.sys = sys
         self.dealer = Dealer(self)
         self.judger = Judge()
-        self.rounds = ["preflop", "flop", "turn", "river"]
+        self.rounds = {"preflop": self.dealer.preflop, "flop": self.dealer.flop,
+                        "turn": self.dealer.turn, "river": self.dealer.river}
         self.round_id = 0
         self.max_bet = 0
         self.game_finished = False
@@ -87,55 +91,54 @@ class Game:
         return self.sys.players[player_id].respond(self)
 
     def is_round_finished(self):
-        # to do someone allin
-        if list(self.sys.manager.fold_map.values()).count(False) == 1:
-            self.game_finished = True
-            return True
+        cnt = 0
         for i, p in enumerate(self.sys.players):
-            if not self.sys.manager.fold_map[p.id]:
-                if self.sys.manager.round_bet_map != self.max_bet:
+            if not self.sys.manager.fold_map[p.id] and not self.sys.manager.allin_map[p.id]:
+                if self.sys.manager.round_bet_map[p.id] != self.max_bet:
                     return False
+                cnt += 1
+        if cnt == 1:
+            self.game_finished = True
         return True
 
     def round(self):
-        print("round {{{}}}".format(self.rounds[self.round_id]))
-        self.sys.manager.round_bet_map = {player.id: -1 for player in self.sys.players}
+        print("round {{{}}}".format(list(self.rounds.keys())[self.round_id]))
         nplayer = self.sys.nplayer
         begin = (self.sys.button_id + 1) % nplayer
         if self.round_id == 0:
             begin = (begin + 2) % nplayer
         player_id = begin
-        self.max_bet = 0
+        # todo : more than one bet in preflop
         while not self.is_round_finished():
             if not self.sys.manager.fold_map[player_id]:
                 response = self.request(player_id)
-                print("player {} {} {}".format(response.player_id, response.act, response.amount))
                 assert response.player_id == player_id
                 self.sys.manager.handle_bet(response)
+                print("{} th player {}\t {} {}, remain {}".format(player_id, self.sys.players[player_id].name,
+                      response.act, response.amount, self.sys.manager.possession[response.player_id]))
             player_id = (player_id + 1) % nplayer
-        if self.game_finished:
-            print("game finished! winner is")
+
+        self.sys.manager.round_bet_map = {player.id: -1 for player in self.sys.players}
+        self.max_bet = 0
         self.round_id += 1
 
     def run(self):
         self.dealer.shuffle()
         self.dealer.deliver_to_all()
         self.sys.manager.every_game_init()
-        # TO do circle
-        self.round()
-        self.dealer.flop()
-        self.round()
-        self.dealer.turn()
-        self.round()
-        self.dealer.river()
-        self.round()
+
+        for r in self.rounds:
+            self.rounds[r]()
+            self.round()
+        print("game finished!\n")
         self.dealer.show_hands()
         self.dealer.show_board()
         print(len(self.dealer.piles), " cards left")
 
         judge = Judge()
-        judge.judge(self.dealer.board, self.sys.players)
-        self.button_id = (self.button_id + 1) % self.nplayer
+        winners = judge.judge(self.dealer.board, self.sys.players)
+        self.sys.manager.game_settle(winners)
+
 
     def hand_run(self, hand0, hand1):
         self.dealer.shuffle()
@@ -181,10 +184,9 @@ class System:
 
     def solo(self):
         self.add_players(2)
+        self.players[0].set_strategy(Style.Aggressive)
         self.manager.set_money(1000)
         self.game.run()
-
-
 
 
 if __name__ == "__main__":
