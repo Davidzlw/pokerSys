@@ -1,6 +1,7 @@
 import random
 from enum import Enum
 from enum import IntEnum
+from poker_player import Player
 
 
 class Suit(Enum):
@@ -177,8 +178,8 @@ class StraightFlush(Categories):
 
 
 class Result:
-    def __init__(self, player_id: int, cat: Categories):
-        self.player_id = player_id
+    def __init__(self, player: Player, cat: Categories):
+        self.player = player
         self.cat = cat
 
 
@@ -322,13 +323,13 @@ class Judge:
         for player in players:
             hand = player.hand
             res = self.rank(self.board + hand)
-            results.append(Result(player.id, res))
+            results.append(Result(player, res))
             # print(player.name, res.cat_name)
         winners = self.pk(results)
         for winner in winners:
             need_print = True
             if need_print:
-                print("winner(s) is {} with {}, {}\n".format(winner.player_id,
+                print("winner(s) is {} with {}, {}\n".format(winner.player.id,
                                                              winner.cat.cat_name, winner.cat.info()))
         return winners
 
