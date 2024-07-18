@@ -92,31 +92,41 @@ class Game:
 
     def request(self, player_pos):
         return self.sys.players[player_pos].respond(self)
+        # return self.sys.players[player_pos].manual_respond(self)
 
     def is_round_finished(self):
-        cnt = 0
+        act_cnt = 0
+        uneven_cnt = 0
         for i, p in enumerate(self.sys.players):
             if not self.sys.manager.fold_map[p.pos] and not self.sys.manager.allin_map[p.pos]:
+                act_cnt += 1
                 if self.sys.manager.round_bet_map[p.pos] != self.max_bet:
-                    return False
-                cnt += 1
-        if cnt == 1:
+                    uneven_cnt += 1
+        if act_cnt <= 1:
             self.game_finished = True
+        if uneven_cnt > 0:
+            return False
+        if self.round_id == 0 and not self.sys.manager.bb_act:
+            return False
         return True
 
     def round(self):
         print("round {{{}}}".format(list(self.rounds.keys())[self.round_id]))
         nplayer = self.sys.nplayer
-        begin = (self.sys.button_pos + 1) % nplayer
+        begin = sb_pos = (self.sys.button_pos + 1) % nplayer
+        bb_pos = (self.sys.button_pos + 2) % nplayer
         if self.round_id == 0:
+            self.sys.manager.pre_blind_bet()
             begin = (begin + 2) % nplayer
+
         player_pos = begin
-        # todo : more than one bet for blind in preflop
-        while not self.is_round_finished():
-            if not self.sys.manager.fold_map[player_pos]:
+        while not self.is_round_finished() and not self.game_finished:
+            if player_pos == bb_pos:
+                self.sys.manager.bb_act = True
+            if not self.sys.manager.fold_map[player_pos] and not self.sys.manager.allin_map[player_pos]:
                 response = self.request(player_pos)
                 assert response.player_pos == player_pos
-                self.sys.manager.handle_bet(response)
+                self.sys.manager.handle_action(response)
                 print("{} th player {}\t {:13} {}, remain: {:4}, pot: {}".format(player_pos, self.sys.players[player_pos].name,
                       response.act, response.amount, self.sys.manager.possession[response.player_pos], self.sys.manager.pot))
             player_pos = (player_pos + 1) % nplayer
@@ -130,28 +140,33 @@ class Game:
         self.dealer.deliver_to_all()
         self.sys.manager.every_game_init()
 
+        self.dealer.show_hands()
         for r in self.rounds:
             self.rounds[r]()  # dealer draw cards
+            self.dealer.show_board()
             self.round()  # player act
         print("game finished!\n")
-        self.dealer.show_hands()
-        self.dealer.show_board()
         print(len(self.dealer.piles), " cards left")
 
-        judge = Judge()
-        winners = judge.judge(self.dealer.board, self.sys.players)
-        self.sys.manager.game_settle(winners)
+        unfold_pos = [1 for pos in self.sys.manager.fold_map.keys() if self.sys.manager.fold_map[pos]]
+        if len(unfold_pos) == 1:
+            self.sys.manager.game_settle(unfold_pos)
+            print("winner is {}\n".format(self.sys.players[unfold_pos[0]].id))
+        else:
+            judge = Judge()
+            results = judge.judge(self.dealer.board, self.sys.players, True)
+            winner_poses = [result.player.pos for result in results]
+            self.sys.manager.game_settle(winner_poses)
+        print("=============== end of game ===============\n")
 
-
-    def hand_run(self, hand0, hand1):
+    def hand_run(self, hands):
         self.dealer.shuffle()
-        hand0 = [Card(Suit.Diamond, Point.Ace), Card(Suit.Club, Point.Ace)]
-        hand1 = [Card(Suit.Spade, Point.Eight), Card(Suit.Spade, Point.Seven)]
-        self.dealer.deliver_specific_to_player(0, hand0)
-        self.dealer.deliver_specific_to_player(1, hand1)
+        for i, hand in enumerate(hands):
+            self.dealer.deliver_specific_to_player(i, hand)
+
         judge = Judge()
 
-        cnt0, cnt1, chop = 0, 0, 0
+        cnts, chop = [0] * len(hands), 0
         n = 10000
         # board_cards = [Card(Suit.Heart, Point.Jack), Card(Suit.Heart, Point.Ten), Card(Suit.Spade, Point.Three), Card(Suit.Spade, Point.Two)]
         # print("{} | {} | {} | {} | * ".format(board_cards[0], board_cards[1], board_cards[2], board_cards[3]))
@@ -167,13 +182,12 @@ class Game:
             winners = judge.judge(board, self.sys.players)
             if len(winners) > 1:
                 chop += 1
-            elif winners[0].player.pos == 0:
-                cnt0 += 1
             else:
-                cnt1 += 1
-        print(cnt0, cnt1, chop)
-        print("{} | {} winning rate: {}, {} | {} winning rate: {}, chop: {}".format(hand0[0], hand0[1], 1.0*cnt0/n,
-                                                                         hand1[0], hand1[1], 1.0*cnt1/n, 1.0*chop/n))
+                cnts[winners[0].player.pos] += 1
+
+        for i, hand in enumerate(hands):
+            print("{} | {} winning rate: {}".format(hand[0], hand[1], 1.0 * cnts[i] / n))
+        print("chop: {}".format(1.0 * chop / n))
 
 
 class System:
@@ -195,34 +209,73 @@ class System:
             id = self.nplayer
             self.add_player(id, "player_" + str(id))
 
+    # sim a solo game
     def solo(self):
         self.add_players(2)
         self.players[0].set_strategy(Style.Aggressive)
-        self.manager.set_money(1000)
+        self.manager.set_same_money(1000)
         self.game.run()
 
     def test(self):
-        self.add_players(2)
-        hand0 = [Card(Suit.Heart, Point.Seven), Card(Suit.Heart, Point.Six)]
-        hand1 = [Card(Suit.Diamond, Point.Queen), Card(Suit.Club, Point.Eight)]
-        # for suit in Suit:
-        #     for pt in Point:
-        #         if Card(suit, pt) == hand0[0] or Card(suit, pt) == hand0[1]:
-        #             continue
-        #         for suit1 in Suit:
-        #             for pt1 in Point:
-        #                 if Card(suit1, pt1) == hand0[0] or Card(suit1, pt1) == hand0[1] or Card(suit, pt) == Card(suit1, pt1):
-        #                     continue
-        #                 hand1 = [Card(suit1, pt1), Card(suit, pt)]
-        #                 system.hand_run(hand0, hand1)
-        self.game.hand_run(hand0, hand1)
+        hand0 = [Card(Suit.Heart, Point.King), Card(Suit.Club, Point.King)]
+        hand1 = [Card(Suit.Diamond, Point.Ace), Card(Suit.Spade, Point.Ace)]
+        # hand2 = [Card(Suit.Club, Point.King), Card(Suit.Club, Point.Queen)]
+        # hand3 = [Card(Suit.Spade, Point.Five), Card(Suit.Spade, Point.Six)]
+        # all_hands = [hand0, hand1, hand2, hand3]
+        all_hands = [hand0, hand1]
+        self.add_players(len(all_hands))
+
+        self.game.hand_run(all_hands)
+
+    def test_every_enemy(self):
+        hand0 = [Card(Suit.Heart, Point.Nine), Card(Suit.Heart, Point.Ten)]
+        for suit in Suit:
+            for pt in Point:
+                if Card(suit, pt) == hand0[0] or Card(suit, pt) == hand0[1]:
+                    continue
+                for suit1 in Suit:
+                    for pt1 in Point:
+                        if Card(suit1, pt1) == hand0[0] or Card(suit1, pt1) == hand0[1] or Card(suit, pt) == Card(suit1, pt1):
+                            continue
+                        hand1 = [Card(suit1, pt1), Card(suit, pt)]
+                        self.game.hand_run([hand0, hand1])
+
+
+class Tester:
+    def __init__(self):
+        pass
+
+    def case0_test_2p_solo_game(self):
+        system = System()
+        system.solo()
+
+    def case1_test_preflop_allin_blind(self):
+        random.seed(1)
+        system = System()
+        system.add_players(2)
+        system.players[0].set_strategy(Style.Aggressive)
+        system.manager.set_money(0, 1000)
+        system.manager.set_money(1, 1)
+        system.game.run()
+        assert system.manager.possession[1] == 3
+
+    def case2_test_2p_aggressive(self):
+        random.seed(1)
+        system = System()
+        system.add_players(2)
+        system.players[0].set_strategy(Style.Aggressive)
+        system.players[1].set_strategy(Style.Aggressive)
+        system.manager.set_same_money(1000)
+        system.game.run()
 
 
 if __name__ == "__main__":
     random.seed(1)
-    system = System()
     # system.test()
-    system.solo()
+    t = Tester()
+    # t.case0_test_2p_solo_game()
+    # t.case1_test_preflop_allin_blind()
+    t.case2_test_2p_aggressive()
 
 
 

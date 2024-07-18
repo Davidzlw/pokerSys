@@ -315,7 +315,7 @@ class Judge:
             highest_results.sort(key=lambda x: x.cat.points, reverse=True)
             return [res for res in highest_results if res.cat.points == highest_results[0].cat.points]
 
-    def judge(self, board: [Card], players: []):
+    def judge(self, board: [Card], players: [], need_print=False):
         self.board = board.copy()
         assert len(self.board) == 5
         # print("judge result:")
@@ -327,7 +327,6 @@ class Judge:
             # print(player.name, res.cat_name)
         winners = self.pk(results)
         for winner in winners:
-            need_print = True
             if need_print:
                 print("winner(s) is {} with {}, {}\n".format(winner.player.id,
                                                              winner.cat.cat_name, winner.cat.info()))
