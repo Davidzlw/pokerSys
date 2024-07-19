@@ -246,10 +246,12 @@ class Tester:
         pass
 
     def case0_test_2p_solo_game(self):
+        # test check/ bet/ call
         system = System()
         system.solo()
 
     def case1_test_preflop_allin_blind(self):
+        # test blind
         random.seed(1)
         system = System()
         system.add_players(2)
@@ -260,6 +262,7 @@ class Tester:
         assert system.manager.possession[1] == 3
 
     def case2_test_2p_aggressive(self):
+        # test raise/ allin
         random.seed(1)
         system = System()
         system.add_players(2)
@@ -273,9 +276,9 @@ if __name__ == "__main__":
     random.seed(1)
     # system.test()
     t = Tester()
-    # t.case0_test_2p_solo_game()
+    t.case0_test_2p_solo_game()
     # t.case1_test_preflop_allin_blind()
-    t.case2_test_2p_aggressive()
+    # t.case2_test_2p_aggressive()
 
 
 

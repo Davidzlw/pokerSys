@@ -45,6 +45,8 @@ class PotManager:
         self.possession[pos] -= actual_cost
         if self.possession[pos] == 0:
             self.allin_map[pos] = True
+        self.round_bet_map[pos] = max(self.round_bet_map[pos], 0) + actual_cost
+        self.pot += actual_cost
         return actual_cost
 
     def pre_blind_bet(self):
@@ -52,7 +54,6 @@ class PotManager:
         bb_pos = (self.sys.button_pos + 2) % self.sys.nplayer
         sb = self.try_bet(sb_pos, self.blind)
         bb = self.try_bet(bb_pos, self.blind * 2)
-        self.pot += (sb + bb)
         self.sys.game.max_bet = self.blind * 2
         print("{} th player {}\t {:13} {}, remain: {:4}".format(sb_pos, self.sys.players[sb_pos].name,
               "Blind", sb, self.possession[sb_pos]))
@@ -69,35 +70,27 @@ class PotManager:
             assert self.sys.game.max_bet == 0
             assert self.possession[response.player_pos] >= response.amount
             self.try_bet(response.player_pos, response.amount)
-            self.round_bet_map[response.player_pos] = response.amount
             self.sys.game.max_bet = response.amount
-            self.pot += response.amount
         elif response.act == ActionType.Call:
             assert self.sys.game.max_bet != 0
             assert self.sys.game.max_bet == response.amount
             add = response.amount - max(0, self.round_bet_map[response.player_pos])
             assert self.possession[response.player_pos] >= add
             self.try_bet(response.player_pos, add)
-            self.round_bet_map[response.player_pos] = self.sys.game.max_bet
-            self.pot += add
         elif response.act == ActionType.Raise:
             assert self.sys.game.max_bet != 0
             assert response.amount >= 2 * self.sys.game.max_bet
             add = response.amount - max(0, self.round_bet_map[response.player_pos])
             assert self.possession[response.player_pos] >= add
             self.try_bet(response.player_pos, add)
-            self.round_bet_map[response.player_pos] = response.amount
             self.sys.game.max_bet = response.amount
-            self.pot += add
         elif response.act == ActionType.Fold:
             self.fold_map[response.player_pos] = True
         elif response.act == ActionType.Allin:
             add = response.amount - max(0, self.round_bet_map[response.player_pos])
             assert add == self.possession[response.player_pos]
             self.try_bet(response.player_pos, add)
-            self.round_bet_map[response.player_pos] = response.amount
             self.sys.game.max_bet = max(response.amount, self.sys.game.max_bet)
-            self.pot += add
 
     def game_settle(self, winner_poses):
         if len(winner_poses) == 1:
